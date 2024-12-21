@@ -4,31 +4,16 @@ const Question = require('../models/Question');
 const authMiddleware = require('../middlewares/authMiddleware');
 const router = express.Router();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
-const upload = multer({ storage });
-
 // POST /api/questions - Create a Question
-// POST /api/questions - Create a Question
-router.post('/', authMiddleware, upload.array('images', 10), async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { title, description, category, gpsLocation, attempts } = req.body;
-
-    // Extract paths of uploaded images
-    const imagePaths = req.files.map((file) => `uploads/${file.filename}`);
+    const { title, description, category, gpsLocation, attempts, images } = req.body;
 
     const question = new Question({
       title,
       description,
       category,
-      images: imagePaths, // Store all image paths
+      images,
       gpsLocation,
       attempts,
       user: req.user.id,
