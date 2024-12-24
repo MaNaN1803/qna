@@ -297,4 +297,108 @@ router.put('/settings', authMiddleware, roleMiddleware('admin'), async (req, res
   }
 });
 
+// Add these new endpoints to adminRoutes.js
+
+// Get reported questions with pagination and filtering
+router.get('/reported-questions', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status } = req.query;
+    const query = { status: status || 'under review' };
+
+    const questions = await Question.find(query)
+      .populate('user', 'name')
+      .populate('moderatedBy', 'name')
+      .sort({ moderatedAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const total = await Question.countDocuments(query);
+
+    res.json({
+      questions,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Handle reported question
+router.put('/questions/:id/handle-report', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+  try {
+    const { action, adminNote } = req.body;
+    const question = await Question.findById(req.params.id);
+    
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    // Update the question based on action
+    switch (action) {
+      case 'approve':
+        question.status = 'open';
+        break;
+      case 'reject':
+        question.status = 'rejected';
+        break;
+      case 'delete':
+        await Question.findByIdAndDelete(req.params.id);
+        // Delete associated answers and reports
+        await Promise.all([
+          Answer.deleteMany({ question: req.params.id }),
+          Report.deleteMany({ contentId: req.params.id, contentType: 'question' })
+        ]);
+        return res.json({ message: 'Question and associated content deleted' });
+      case 'warn':
+        question.status = 'open';
+        // Implement user warning system here
+        break;
+      default:
+        return res.status(400).json({ message: 'Invalid action' });
+    }
+
+    question.moderatorNote = `${question.moderatorNote}\nAdmin Note: ${adminNote}`;
+    question.moderatedBy = req.user.id;
+    question.moderatedAt = new Date();
+
+    await question.save();
+
+    // Update associated reports
+    await Report.updateMany(
+      { contentId: question._id, contentType: 'question', status: 'pending' },
+      {
+        status: 'reviewed',
+        moderatedBy: req.user.id,
+        moderatedAt: new Date(),
+        moderatorNote: adminNote,
+        actionTaken: action === 'warn' ? 'warning' : action === 'delete' ? 'content_removed' : 'none'
+      }
+    );
+
+    res.json(question);
+  } catch (err) {
+    console.error('Error handling reported question:', err);
+    res.status(500).json({ message: 'Error handling reported question' });
+  }
+});
+
+// Get question moderation history
+router.get('/questions/:id/history', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+  try {
+    const reports = await Report.find({
+      contentId: req.params.id,
+      contentType: 'question'
+    })
+      .populate('reportedBy', 'name')
+      .populate('moderatedBy', 'name')
+      .sort({ createdAt: -1 });
+
+    res.json(reports);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
 module.exports = router;

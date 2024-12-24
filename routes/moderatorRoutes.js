@@ -172,4 +172,93 @@ router.get('/stats', authMiddleware, roleMiddleware('moderator', 'admin'), async
   }
 });
 
+// Add these new endpoints to moderatorRoutes.js
+
+// Get all questions for moderator review
+router.get('/questions', authMiddleware, roleMiddleware('moderator', 'admin'), async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const questions = await Question.find()
+      .populate('user', 'name')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Question.countDocuments();
+    const totalPages = Math.ceil(total / limit);
+
+    res.json({
+      questions,
+      currentPage: page,
+      totalPages,
+      totalQuestions: total
+    });
+  } catch (err) {
+    console.error('Error fetching questions:', err);
+    res.status(500).json({ message: 'Error fetching questions' });
+  }
+});
+
+// Report a question to admin
+router.post('/questions/:id/report', authMiddleware, roleMiddleware('moderator'), async (req, res) => {
+  try {
+    const { reason, details } = req.body;
+    const questionId = req.params.id;
+
+    // Update question status to under review
+    await Question.findByIdAndUpdate(questionId, {
+      status: 'under review',
+      moderatorNote: details,
+      moderatedBy: req.user.id,
+      moderatedAt: new Date()
+    });
+
+    // Create a report
+    const report = new Report({
+      contentId: questionId,
+      contentType: 'question',
+      reason,
+      details,
+      reportedBy: req.user.id,
+      severity: 'high', // Moderator reports are considered high priority
+      status: 'pending'
+    });
+
+    await report.save();
+    res.json({ message: 'Question reported successfully' });
+  } catch (err) {
+    console.error('Error reporting question:', err);
+    res.status(500).json({ message: 'Error reporting question' });
+  }
+});
+
+// Update question status with moderation note
+router.put('/questions/:id/status', authMiddleware, roleMiddleware('moderator'), async (req, res) => {
+  try {
+    const { status, moderationNote } = req.body;
+    const question = await Question.findByIdAndUpdate(
+      req.params.id,
+      {
+        status,
+        moderatorNote: moderationNote,
+        moderatedBy: req.user.id,
+        moderatedAt: new Date()
+      },
+      { new: true }
+    ).populate('user', 'name');
+
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    res.json(question);
+  } catch (err) {
+    console.error('Error updating question status:', err);
+    res.status(500).json({ message: 'Error updating question status' });
+  }
+});
+
 module.exports = router;
