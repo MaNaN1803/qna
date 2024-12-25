@@ -11,7 +11,7 @@ const answerRoutes = require('./routes/answerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const moderatorRoutes = require('./routes/moderatorRoutes');
-
+const reportRoutes = require('./routes/reportRoutes');
 connectDB();
 
 const Question = require('./models/Question');
@@ -29,6 +29,7 @@ app.use('/api/answers', answerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/moderator', moderatorRoutes);
+app.use('/api/reports', reportRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.message);
