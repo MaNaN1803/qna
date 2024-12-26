@@ -31,10 +31,16 @@ router.post('/', authMiddleware, async (req, res) => {
 // GET /api/questions/:id - Get Question by ID
 router.get('/:id', async (req, res) => {
   try {
-    const question = await Question.findById(req.params.id).populate('user', 'name');
+    const question = await Question.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { views: 1 } },
+      { new: true }
+    ).populate('user', 'name');
+
     if (!question) return res.status(404).send('Question not found');
     res.json(question);
   } catch (err) {
+    console.error('Error fetching question:', err);
     res.status(500).send('Server error');
   }
 });
