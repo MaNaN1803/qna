@@ -93,6 +93,37 @@ router.get('/', async (req, res) => {
 });
 
 
+router.put('/:id/vote', authMiddleware, async (req, res) => {
+  try {
+    const { vote } = req.body; // "up" or "down"
+    const increment = vote === 'up' ? 1 : -1;
+
+    const question = await Question.findById(req.params.id);
+    if (!question) return res.status(404).send('Question not found');
+
+    const existingVote = question.voters.find(v => v.user.toString() === req.user.id);
+
+    if (existingVote) {
+      if (existingVote.vote === increment) {
+        return res.status(400).json({ message: 'You have already voted' });
+      }
+      // Update existing vote
+      existingVote.vote = increment;
+    } else {
+      // Add new vote
+      question.voters.push({ user: req.user.id, vote: increment });
+    }
+
+    // Calculate net votes
+    question.votes = question.voters.reduce((sum, v) => sum + v.vote, 0);
+    await question.save();
+
+    res.json(question);
+  } catch (err) {
+    console.error('Error voting on question:', err);
+    res.status(500).send('Server error');
+  }
+});
 
 
 

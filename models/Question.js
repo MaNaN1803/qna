@@ -25,7 +25,13 @@ const QuestionSchema = new mongoose.Schema(
       type: String,
       enum: ['low', 'medium', 'high', 'urgent'],
       default: 'medium'
-    }
+    },
+    votes: { type: Number, default: 0 },
+voters: [{
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  vote: { type: Number, enum: [-1, 1] } // -1 for downvote, 1 for upvote
+}]
+
   },
   { timestamps: true }
 );
