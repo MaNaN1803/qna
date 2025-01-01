@@ -52,5 +52,30 @@ router.get('/profile', async (req, res) => {
   }
 });
 
+// Update Profile
+router.put('/profile', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Authorization token missing.' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    const { name, email, password } = req.body;
+    const updateData = { name, email };
+
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateData.password = hashedPassword;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).select('-password');
+    if (!updatedUser) return res.status(404).json({ message: 'User not found.' });
+
+    res.json({ message: 'Profile updated successfully.', user: updatedUser });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 module.exports = router;
