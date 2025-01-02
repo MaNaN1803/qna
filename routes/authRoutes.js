@@ -53,6 +53,7 @@ router.get('/profile', async (req, res) => {
 });
 
 // Update Profile
+// Update Profile
 router.put('/profile', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -61,18 +62,17 @@ router.put('/profile', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id;
 
-    const { name, email, password } = req.body;
+    const updateData = {};
 
-    if (!name && !email && !password) {
-      return res.status(400).json({ message: 'No valid fields to update.' });
+    if (req.body.name) updateData.name = req.body.name;
+    if (req.body.email) updateData.email = req.body.email;
+    if (req.body.password) {
+      const hashedPassword = await bcrypt.hash(req.body.password, 10);
+      updateData.password = hashedPassword;
     }
 
-    const updateData = {};
-    if (name) updateData.name = name;
-    if (email) updateData.email = email;
-    if (password) {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      updateData.password = hashedPassword;
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No valid fields to update.' });
     }
 
     const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
@@ -88,6 +88,5 @@ router.put('/profile', async (req, res) => {
     res.status(500).json({ message: 'Server Error' });
   }
 });
-
 
 module.exports = router;
