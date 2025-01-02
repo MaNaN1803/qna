@@ -62,20 +62,32 @@ router.put('/profile', async (req, res) => {
     const userId = decoded.id;
 
     const { name, email, password } = req.body;
-    const updateData = { name, email };
 
+    if (!name && !email && !password) {
+      return res.status(400).json({ message: 'No valid fields to update.' });
+    }
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
       updateData.password = hashedPassword;
     }
-    console.log('Updating user:', updateData);
-    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true }).select('-password');
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+      new: true,
+      runValidators: true,
+    }).select('-password');
+
     if (!updatedUser) return res.status(404).json({ message: 'User not found.' });
 
     res.json({ message: 'Profile updated successfully.', user: updatedUser });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Error updating profile:', err.message);
+    res.status(500).json({ message: 'Server Error' });
   }
 });
+
 
 module.exports = router;
