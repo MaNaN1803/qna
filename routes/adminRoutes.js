@@ -433,12 +433,15 @@ router.delete('/questions/:id', authMiddleware, roleMiddleware('admin'), async (
     }
 
     // Delete question and associated answers
-    await Promise.all([
-      Question.findByIdAndDelete(req.params.id),
-      Answer.deleteMany({ question: req.params.id }),
-    ]);
+    const deletedQuestion = await Question.findByIdAndDelete(req.params.id);
+    if (!deletedQuestion) {
+      return res.status(404).json({ message: 'Question not found.' });
+    }
 
-    res.json({ message: 'Resolved question and its answers deleted successfully.' });
+    await Answer.deleteMany({ question: req.params.id });
+
+    // Return a valid JSON response
+    res.json({ message: 'Question and its answers deleted successfully.' });
   } catch (err) {
     console.error('Error deleting resolved question:', err);
     res.status(500).json({ message: 'Error deleting resolved question.' });
