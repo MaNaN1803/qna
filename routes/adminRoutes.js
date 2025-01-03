@@ -400,5 +400,50 @@ router.get('/questions/:id/history', authMiddleware, roleMiddleware('admin'), as
   }
 });
 
+// Fetch All Resolved Questions
+router.get('/questions/resolved', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+
+    const resolvedQuestions = await Question.find({ status: 'resolved' })
+      .populate('user', 'name')
+      .sort({ updatedAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const total = await Question.countDocuments({ status: 'resolved' });
+
+    res.json({
+      questions: resolvedQuestions,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+    });
+  } catch (err) {
+    console.error('Error fetching resolved questions:', err);
+    res.status(500).json({ message: 'Error fetching resolved questions.' });
+  }
+});
+
+// Delete Resolved Question by ID
+router.delete('/questions/:id', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+  try {
+    const question = await Question.findById(req.params.id);
+    if (!question || question.status !== 'resolved') {
+      return res.status(404).json({ message: 'Resolved question not found.' });
+    }
+
+    // Delete question and associated answers
+    await Promise.all([
+      Question.findByIdAndDelete(req.params.id),
+      Answer.deleteMany({ question: req.params.id }),
+    ]);
+
+    res.json({ message: 'Resolved question and its answers deleted successfully.' });
+  } catch (err) {
+    console.error('Error deleting resolved question:', err);
+    res.status(500).json({ message: 'Error deleting resolved question.' });
+  }
+});
+
 
 module.exports = router;
