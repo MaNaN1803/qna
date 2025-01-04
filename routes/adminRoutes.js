@@ -423,28 +423,38 @@ router.get('/questions/resolved', authMiddleware, roleMiddleware('admin'), async
     res.status(500).json({ message: 'Error fetching resolved questions.' });
   }
 });
-
 // Delete Resolved Question by ID
 router.delete('/questions/:id', authMiddleware, roleMiddleware('admin'), async (req, res) => {
   try {
-    const question = await Question.findById(req.params.id);
+    const questionId = req.params.id;
+
+    // Check if the question exists and has the correct status
+    const question = await Question.findById(questionId);
     if (!question || question.status !== 'resolved') {
       return res.status(404).json({ message: 'Resolved question not found.' });
     }
 
-    // Delete question and associated answers
-    const deletedQuestion = await Question.findByIdAndDelete(req.params.id);
+    // Delete the question
+    const deletedQuestion = await Question.findByIdAndDelete(questionId);
     if (!deletedQuestion) {
       return res.status(404).json({ message: 'Question not found.' });
     }
 
-    await Answer.deleteMany({ question: req.params.id });
+    // Delete all associated answers
+    await Answer.deleteMany({ question: questionId });
 
-    // Return a valid JSON response
-    res.json({ message: 'Question and its answers deleted successfully.' });
+    // Send a successful response
+    return res.status(200).json({ message: 'Question and its answers deleted successfully.' });
   } catch (err) {
     console.error('Error deleting resolved question:', err);
-    res.status(500).json({ message: 'Error deleting resolved question.' });
+
+    // Catch unexpected errors and send a meaningful response
+    if (err.name === 'CastError' && err.kind === 'ObjectId') {
+      return res.status(400).json({ message: 'Invalid question ID format.' });
+    }
+
+    // Generic server error response
+    return res.status(500).json({ message: 'An internal server error occurred while deleting the question.' });
   }
 });
 
