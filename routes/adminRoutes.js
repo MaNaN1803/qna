@@ -5,6 +5,7 @@ const Question = require('../models/Question');
 const Answer = require('../models/Answer');
 const authMiddleware = require('../middlewares/authMiddleware');
 const roleMiddleware = require('../middlewares/roleMiddleware');
+const Category = require('../models/Category');
 const router = express.Router();
 
 // Get Dashboard Stats
@@ -458,5 +459,91 @@ router.delete('/questions/:id', authMiddleware, roleMiddleware('admin'), async (
   }
 });
 
+// Get all categories
+router.get('/categories', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+  try {
+    const categories = await Category.find().sort({ name: 1 });
+    res.json(categories);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Create new category
+router.post('/categories', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    
+    // Check if category already exists
+    const existingCategory = await Category.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+    if (existingCategory) {
+      return res.status(400).json({ message: 'Category already exists' });
+    }
+
+    const category = new Category({
+      name,
+      description
+    });
+
+    const newCategory = await category.save();
+    res.status(201).json(newCategory);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Update category
+router.put('/categories/:id', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    
+    // Check if new name already exists (excluding current category)
+    if (name) {
+      const existingCategory = await Category.findOne({
+        _id: { $ne: req.params.id },
+        name: { $regex: new RegExp(`^${name}$`, 'i') }
+      });
+      if (existingCategory) {
+        return res.status(400).json({ message: 'Category name already exists' });
+      }
+    }
+
+    const category = await Category.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    if (name) category.name = name;
+    if (description) category.description = description;
+
+    const updatedCategory = await category.save();
+    res.json(updatedCategory);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Delete category
+router.delete('/categories/:id', authMiddleware, roleMiddleware('admin'), async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({ message: 'Category not found' });
+    }
+
+    // Check if category is in use
+    const questionsUsingCategory = await Question.countDocuments({ category: category.name });
+    if (questionsUsingCategory > 0) {
+      return res.status(400).json({ 
+        message: 'Cannot delete category that is in use. Please reassign questions first.' 
+      });
+    }
+
+    await category.deleteOne();
+    res.json({ message: 'Category deleted' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 module.exports = router;

@@ -15,7 +15,7 @@ const reportRoutes = require('./routes/reportRoutes');
 connectDB();
 
 const Question = require('./models/Question');
-
+const Category = require('./models/Category');
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
