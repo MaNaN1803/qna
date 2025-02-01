@@ -20,7 +20,7 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ message: 'Password is required' });
     }
 
-    console.log("Raw password received:", password); // Debug log
+    // console.log("Raw password received:", password); // Debug log
 
     // Create user without hashing password here
     const user = new User({ name, email, password });
@@ -44,12 +44,12 @@ router.post('/login', async (req, res) => {
       return res.status(404).json({ message: 'User not found. Please check your email.' });
     }
 
-    console.log("Entered password:", password); // Debug log
-    console.log("Stored (hashed) password:", user.password); // Debug log
+    // console.log("Entered password:", password); // Debug log
+    // console.log("Stored (hashed) password:", user.password); // Debug log
 
     // Check if password matches
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log("Password Match Status:", isMatch); // Debug log
+    // console.log("Password Match Status:", isMatch); // Debug log
 
     if (!isMatch) {
       return res.status(400).json({ message: 'Incorrect password. Please try again.' });
